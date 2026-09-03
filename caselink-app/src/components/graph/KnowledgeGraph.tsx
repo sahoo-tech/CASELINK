@@ -187,7 +187,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
     }));
   }, []);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(buildPrimaryNodes());
+  const [nodes, setNodes, onNodesChange] = useNodesState<any>(buildPrimaryNodes());
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
   // Load live detailed graph data from backend

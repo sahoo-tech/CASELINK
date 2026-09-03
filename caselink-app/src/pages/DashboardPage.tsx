@@ -15,7 +15,7 @@ import {
   MOCK_CASES, MOCK_LEADS, MOCK_ACTIVITY_DATA, ENTITY_BREAKDOWN,
 } from '../data/mockData';
 
-const fadeUp = {
+const fadeUp: any = {
   hidden: { opacity: 0, y: 12 },
   visible: (i: number) => ({
     opacity: 1,

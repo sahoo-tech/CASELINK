@@ -18,12 +18,12 @@ const FeatureBullet: React.FC<{ text: string; delay: number }> = ({ text, delay 
   </motion.div>
 );
 
-const containerVariants = {
+const containerVariants: any = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.07 } },
 };
 
-const itemVariants = {
+const itemVariants: any = {
   hidden: { opacity: 0, y: 14 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
 };

@@ -18,8 +18,7 @@ import {
 import KnowledgeGraph from '../components/graph/KnowledgeGraph';
 import ConfidenceBar from '../components/ui/ConfidenceBar';
 import EntityBadge from '../components/ui/EntityBadge';
-import PriorityBadge from '../components/ui/PriorityBadge';
-import StatusBadge from '../components/ui/StatusBadge';
+import { StatusBadge, PriorityBadge } from '../components/common/Badges';
 import {
   MOCK_CASES,
   MOCK_ENTITIES,
