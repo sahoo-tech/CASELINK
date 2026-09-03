@@ -1,0 +1,93 @@
+# ==============================================================================
+# CASELINK - Comprehensive .gitignore for Full-Stack Repository
+# ==============================================================================
+
+# ─── Environment Variables & Secrets ─────────────────────────────────────────
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+!*.env.example
+
+# ─── Python & Backend Artifacts ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+.cache/
+nosetests.xml
+coverage.xml
+htmlcov/
+.hypothesis/
+
+# Local Databases (Keep mock data in seed_data.py, ignore generated SQLite files)
+*.db
+*.sqlite
+*.sqlite3
+caselink_dev.db
+caselink_test.db
+
+# ─── Node & Frontend Artifacts ───────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Vite / React Build Outputs
+dist/
+dist-ssr/
+.vite/
+caselink-app/dist/
+caselink-app/dist-ssr/
+caselink-app/.vite/
+
+# ─── Editor & IDE Artifacts ──────────────────────────────────────────────────
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*~
+*.bak
+
+# ─── Operating System Files ──────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+
+# ─── Logs ────────────────────────────────────────────────────────────────────
+logs/
+*.log
