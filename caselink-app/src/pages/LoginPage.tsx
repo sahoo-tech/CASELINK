@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Shield, Eye, EyeOff, Lock, User, ChevronDown, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Shield, Eye, EyeOff, Lock, User, ChevronDown, CheckCircle, AlertTriangle, Sparkles, KeyRound } from 'lucide-react';
 import userService from '../services/userService';
 
 const FeatureBullet: React.FC<{ text: string; delay: number }> = ({ text, delay }) => (
@@ -166,9 +166,67 @@ const LoginPage: React.FC = () => {
               initial="hidden"
               animate="visible"
             >
-              <motion.div variants={itemVariants} className="mb-6">
-                <h2 className="text-xl font-bold text-slate-100">Secure Access</h2>
-                <p className="text-sm text-slate-400 mt-1">Enter your official credentials to proceed.</p>
+              <motion.div variants={itemVariants} className="mb-4">
+                <h2 className="text-xl font-bold text-slate-100">Secure Access Portal</h2>
+                <p className="text-sm text-slate-400 mt-0.5">National Criminal Network Intelligence Database</p>
+              </motion.div>
+
+              {/* ── Eye-Catching Professional Demo Banner ── */}
+              <motion.div
+                variants={itemVariants}
+                className="mb-5 p-3.5 rounded-xl bg-gradient-to-r from-blue-950/80 via-[#102a4e] to-blue-950/80 border border-blue-400/60 shadow-lg shadow-blue-500/10 relative overflow-hidden"
+              >
+                {/* Glow accent */}
+                <div className="absolute top-0 right-0 w-28 h-28 bg-blue-500/15 rounded-full blur-2xl pointer-events-none" />
+
+                <div className="flex items-start gap-2.5 relative z-10">
+                  <div className="p-1.5 rounded-lg bg-blue-500/20 border border-blue-400/40 text-blue-300 shrink-0 mt-0.5">
+                    <Sparkles className="w-4 h-4 text-blue-400 animate-pulse" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-white tracking-wide uppercase">
+                        Demonstration Environment
+                      </span>
+                      <span className="px-2 py-0.5 text-[9px] font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono tracking-wider">
+                        OPEN EVALUATION MODE
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-200 leading-relaxed">
+                      Pre-configured credentials are <strong>not required</strong>. For evaluation and trial purposes, you may enter <strong>any custom credentials or agency details</strong> of your choice into the fields below to immediately initialize an authorized investigative session.
+                    </p>
+
+                    {/* Quick Demo Autofill Presets */}
+                    <div className="pt-1 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] text-slate-400 font-medium">Quick Presets:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOfficialId('INV-42109');
+                          setPassword('Officer@2026');
+                          setDepartment('Central Bureau of Investigation (CBI)');
+                          setRole('Lead Investigator');
+                        }}
+                        className="px-2 py-0.5 rounded bg-[#152A46] hover:bg-blue-600 hover:text-white border border-[#1E3A5F] text-[10px] text-blue-300 transition-all font-mono shadow-sm"
+                      >
+                        Lead Investigator (CBI)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOfficialId('ANL-30901');
+                          setPassword('Analyst@2026');
+                          setDepartment('Intelligence Bureau (IB)');
+                          setRole('Senior Intelligence Analyst');
+                        }}
+                        className="px-2 py-0.5 rounded bg-[#152A46] hover:bg-blue-600 hover:text-white border border-[#1E3A5F] text-[10px] text-blue-300 transition-all font-mono shadow-sm"
+                      >
+                        Senior Analyst (IB)
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </motion.div>
 
               {error && (
