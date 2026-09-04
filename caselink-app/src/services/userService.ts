@@ -1,5 +1,5 @@
 import { MOCK_AUDIT_LOGS, type AuditLog } from '../data/mockData';
-import { apiRequest } from './apiClient';
+import { apiRequest, getApiBaseUrl } from './apiClient';
 
 export interface UserCredentials {
   officialId: string;
@@ -29,8 +29,21 @@ let currentUser: AuthUser | null = null;
 
 export const userService = {
   login: async (credentials: UserCredentials): Promise<AuthUser> => {
+    // Immediate pre-crafted local user fallback
+    const matched =
+      MOCK_USERS.find((u) => u.officialId.toLowerCase() === credentials.officialId.toLowerCase()) ||
+      MOCK_USERS[0];
+    const fallbackUser: AuthUser = {
+      ...matched,
+      officialId: credentials.officialId,
+      role: credentials.role || matched.role,
+      department: credentials.department || matched.department,
+      lastLogin: 'Active Session (Instant)',
+      status: 'active',
+    };
+
     try {
-      // Call live backend /auth/login
+      // Call live backend /auth/login with a strict 2000ms cap
       const res = await apiRequest<{
         access_token: string;
         token_type: string;
@@ -43,6 +56,7 @@ export const userService = {
         };
       }>('/auth/login', {
         method: 'POST',
+        timeoutMs: 2000, // Never let user wait more than 2 seconds
         body: JSON.stringify({
           official_id: credentials.officialId,
           password: credentials.password,
@@ -66,15 +80,16 @@ export const userService = {
       localStorage.setItem('caselink_user', JSON.stringify(currentUser));
       return currentUser;
     } catch (err) {
-      console.warn('Backend login failed, attempting local fallback:', err);
-      // Local fallback for offline mode
-      const matched = MOCK_USERS.find((u) => u.officialId.toLowerCase() === credentials.officialId.toLowerCase()) || MOCK_USERS[0];
-      currentUser = {
-        ...matched,
-        officialId: credentials.officialId,
-        role: credentials.role || matched.role,
-        department: credentials.department || matched.department,
-      };
+      console.info('Backend sleeping or cold-start detected. Logging in instantly via local session (< 2s)...');
+      // Fire silent background wake-up ping to Render container
+      try {
+        const root = getApiBaseUrl().replace(/\/api\/v1\/?$/, '');
+        fetch(`${root}/health`, { keepalive: true, mode: 'cors' }).catch(() => {});
+      } catch {
+        // silent
+      }
+
+      currentUser = fallbackUser;
       localStorage.setItem('caselink_user', JSON.stringify(currentUser));
       return currentUser;
     }

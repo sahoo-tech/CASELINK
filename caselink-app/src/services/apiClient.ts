@@ -157,9 +157,13 @@ export async function wakeUpBackend(
   return false;
 }
 
+export interface ApiRequestOptions extends RequestInit {
+  timeoutMs?: number;
+}
+
 export async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: ApiRequestOptions = {}
 ): Promise<T> {
   const baseUrl = getApiBaseUrl();
   const token = localStorage.getItem('caselink_token');
@@ -174,12 +178,18 @@ export async function apiRequest<T>(
 
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const fullUrl = `${baseUrl}${cleanEndpoint}`;
+  const timeoutMs = options.timeoutMs ?? 5000; // 5-second default timeout to prevent long hangs
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(fullUrl, {
       ...options,
       headers,
+      signal: options.signal || controller.signal,
     });
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       let errorDetail = `HTTP ${response.status} ${response.statusText}`;
@@ -197,8 +207,12 @@ export async function apiRequest<T>(
     console.info(`[CASELINK API] ${options.method || 'GET'} ${fullUrl} -> 200 OK`);
     return data;
   } catch (err: any) {
-    console.warn(`[CASELINK API Network Error] ${options.method || 'GET'} ${fullUrl}: ${err.message}`);
-    throw err;
+    clearTimeout(timeoutId);
+    const msg = err.name === 'AbortError'
+      ? `Request timed out after ${timeoutMs}ms (Render server cold start)`
+      : err.message || 'Connection error';
+    console.warn(`[CASELINK API Network Error] ${options.method || 'GET'} ${fullUrl}: ${msg}`);
+    throw new Error(msg);
   }
 }
 
