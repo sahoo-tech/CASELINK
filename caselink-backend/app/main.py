@@ -115,6 +115,7 @@ async def shutdown_event():
 
 
 # ─── Router Registrations ────────────────────────────────────────────────────
+# Mount under /api/v1 standard prefix
 app.include_router(auth.router,        prefix=settings.API_V1_STR)
 app.include_router(cases.router,       prefix=settings.API_V1_STR)
 app.include_router(entities.router,    prefix=settings.API_V1_STR)
@@ -123,8 +124,18 @@ app.include_router(timeline.router,    prefix=settings.API_V1_STR)
 app.include_router(hypotheses.router,  prefix=settings.API_V1_STR)
 app.include_router(reports.router,     prefix=settings.API_V1_STR)
 
+# Also mount under root prefix so requests without /api/v1 work transparently
+app.include_router(auth.router,        prefix="", include_in_schema=False)
+app.include_router(cases.router,       prefix="", include_in_schema=False)
+app.include_router(entities.router,    prefix="", include_in_schema=False)
+app.include_router(graph.router,       prefix="", include_in_schema=False)
+app.include_router(timeline.router,    prefix="", include_in_schema=False)
+app.include_router(hypotheses.router,  prefix="", include_in_schema=False)
+app.include_router(reports.router,     prefix="", include_in_schema=False)
+
 
 # ─── System Endpoints ────────────────────────────────────────────────────────
+@app.get(f"{settings.API_V1_STR}/health", tags=["System"])
 @app.get("/health", tags=["System"])
 async def health_check():
     """System health and readiness check endpoint."""

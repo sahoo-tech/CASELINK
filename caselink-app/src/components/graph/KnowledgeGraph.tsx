@@ -26,6 +26,9 @@ import {
   Network,
   Layers,
   FileText,
+  Activity,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { MOCK_GRAPH_NODES, MOCK_GRAPH_EDGES } from '../../data/mockData';
 import { graphService } from '../../services/graphService';
@@ -199,6 +202,7 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
   const initialDetailed = useMemo(() => graphService.getDetailedFallback(), []);
   const [detailedGraph, setDetailedGraph] = useState<{ nodes: any[]; edges: any[] }>(initialDetailed);
   const [filterType, setFilterType] = useState<string>('ALL');
+  const [showMiniMap, setShowMiniMap] = useState<boolean>(true);
   const rfInstance = useRef<any>(null);
 
   const buildPrimaryNodes = useCallback(() => {
@@ -394,25 +398,85 @@ export const KnowledgeGraph: React.FC<KnowledgeGraphProps> = ({
         >
           <Background color="#152A46" gap={24} size={1} variant={BackgroundVariant.Dots} />
           <Controls className="!bg-[#0B1F3A] !border-[#1E3A5F] !rounded-lg overflow-hidden [&>button]:!bg-[#0B1F3A] [&>button]:!border-[#1E3A5F] [&>button]:!text-slate-300" />
-          <MiniMap
-            className="!bg-[#0B1F3A] !border !border-[#1E3A5F] !rounded-lg"
-            nodeColor={(n) => {
-              switch (n.data?.entityType) {
-                case 'Person':
-                  return '#f97316';
-                case 'Vehicle':
-                  return '#3b82f6';
-                case 'Location':
-                  return '#22c55e';
-                case 'Organization':
-                  return '#a855f7';
-                case 'Event':
-                  return '#f59e0b';
-                default:
-                  return '#ef4444';
-              }
-            }}
-          />
+          
+          {/* ── Mini Section: Useful HUD Telemetry + MiniMap ── */}
+          <div className="absolute bottom-3 right-3 z-10 flex flex-col items-end gap-1.5 select-none pointer-events-none">
+            {/* Useful Telemetry & Legend HUD */}
+            <div className="bg-[#0B1F3A]/95 backdrop-blur border border-[#1E3A5F] rounded-lg p-2.5 text-[10px] space-y-1.5 shadow-2xl pointer-events-auto min-w-[200px]">
+              <div className="flex items-center justify-between border-b border-[#1E3A5F]/70 pb-1">
+                <span className="font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                  <Activity className="w-3 h-3 text-blue-400" />
+                  Graph Telemetry
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-[10px] text-blue-400 font-bold bg-[#152A46] px-1.5 py-0.5 rounded border border-[#1E3A5F]">
+                    {visibleNodes.length}N · {edges.length}E
+                  </span>
+                  <button
+                    onClick={() => setShowMiniMap(!showMiniMap)}
+                    className="p-1 rounded hover:bg-[#152A46] text-slate-400 hover:text-white transition-colors"
+                    title={showMiniMap ? 'Hide MiniMap' : 'Show MiniMap'}
+                  >
+                    {showMiniMap ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3 text-blue-400" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Glance Color Legend */}
+              <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[9px] text-slate-300 pt-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />
+                  <span>Suspect / Person</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                  <span>Vehicle (RTO)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+                  <span>Location / Hub</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-purple-500 shrink-0" />
+                  <span>Organization</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                  <span>Incident / Event</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                  <span className="text-amber-300 font-semibold">Cross-Case Link</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Visual MiniMap Thumbnail */}
+            {showMiniMap && (
+              <div className="pointer-events-auto">
+                <MiniMap
+                  className="!bg-[#0B1F3A] !border !border-[#1E3A5F] !rounded-lg !m-0 shadow-xl"
+                  style={{ width: 180, height: 110 }}
+                  nodeColor={(n) => {
+                    switch (n.data?.entityType) {
+                      case 'Person':
+                        return '#f97316';
+                      case 'Vehicle':
+                        return '#3b82f6';
+                      case 'Location':
+                        return '#22c55e';
+                      case 'Organization':
+                        return '#a855f7';
+                      case 'Event':
+                        return '#f59e0b';
+                      default:
+                        return '#ef4444';
+                    }
+                  }}
+                />
+              </div>
+            )}
+          </div>
         </ReactFlow>
       </div>
     </div>
