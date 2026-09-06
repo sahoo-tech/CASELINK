@@ -51,25 +51,77 @@ export function resetApiBaseUrl(): void {
   window.dispatchEvent(new Event('caselink_api_url_changed'));
 }
 
-export interface HealthPingResult {
-  healthy: boolean;
-  latencyMs: number;
-  data?: any;
-  error?: string;
-  urlChecked?: string;
+// Health cache to avoid redundant parallel network storms
+let lastHealthCheck: { result: HealthPingResult; timestamp: number } | null = null;
+const CACHE_TTL_MS = 6000; // 6 seconds
+
+export function isOfflineModeEnabled(): boolean {
+  return localStorage.getItem('caselink_offline_mode') === 'true';
 }
 
-export async function pingBackendHealth(targetBaseUrl?: string): Promise<HealthPingResult> {
+export function setOfflineModeEnabled(enabled: boolean): void {
+  if (enabled) {
+    localStorage.setItem('caselink_offline_mode', 'true');
+  } else {
+    localStorage.removeItem('caselink_offline_mode');
+  }
+  window.dispatchEvent(new Event('caselink_api_url_changed'));
+}
+
+export interface HealthPingOptions {
+  targetBaseUrl?: string;
+  forceFresh?: boolean;
+  timeoutMs?: number;
+}
+
+export async function pingBackendHealth(options?: HealthPingOptions | string): Promise<HealthPingResult> {
+  // Support string or object argument for backward compatibility
+  const targetBaseUrl = typeof options === 'string' ? options : options?.targetBaseUrl;
+  const forceFresh = typeof options === 'object' ? options.forceFresh : false;
+  const timeoutMs = typeof options === 'object' && options.timeoutMs ? options.timeoutMs : 1600;
+
+  // Return cached result if fresh and not forced
+  const now = Date.now();
+  if (!forceFresh && !targetBaseUrl && lastHealthCheck && (now - lastHealthCheck.timestamp < CACHE_TTL_MS)) {
+    return lastHealthCheck.result;
+  }
+
   const base = targetBaseUrl ? normalizeApiUrl(targetBaseUrl) : getApiBaseUrl();
   const rootUrl = base.replace(/\/api\/v1\/?$/, '');
-  const healthUrl = `${rootUrl}/health`;
 
+  // Fast ping first: Try /ping with lightweight HEAD/GET, fallback to /health
   const start = performance.now();
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    const res = await fetch(healthUrl, {
+  try {
+    // Attempt /ping first (< 1ms backend processing time)
+    const pingUrl = `${rootUrl}/ping`;
+    const res = await fetch(pingUrl, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      signal: controller.signal,
+    }).catch(() => null);
+
+    if (res && res.ok) {
+      clearTimeout(timeoutId);
+      const latencyMs = Math.round(performance.now() - start);
+      const data = await res.json().catch(() => ({ status: 'ok' }));
+      const result: HealthPingResult = {
+        healthy: true,
+        latencyMs,
+        data,
+        urlChecked: pingUrl,
+      };
+      if (!targetBaseUrl) {
+        lastHealthCheck = { result, timestamp: Date.now() };
+      }
+      return result;
+    }
+
+    // Secondary fallback: /health
+    const healthUrl = `${rootUrl}/health`;
+    const healthRes = await fetch(healthUrl, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       signal: controller.signal,
@@ -78,24 +130,42 @@ export async function pingBackendHealth(targetBaseUrl?: string): Promise<HealthP
 
     const latencyMs = Math.round(performance.now() - start);
 
-    if (res.ok) {
-      const data = await res.json().catch(() => ({}));
-      return { healthy: true, latencyMs, data, urlChecked: healthUrl };
+    if (healthRes.ok) {
+      const data = await healthRes.json().catch(() => ({}));
+      const result: HealthPingResult = { healthy: true, latencyMs, data, urlChecked: healthUrl };
+      if (!targetBaseUrl) {
+        lastHealthCheck = { result, timestamp: Date.now() };
+      }
+      return result;
     }
-    return {
+
+    const failureResult: HealthPingResult = {
       healthy: false,
       latencyMs,
-      error: `Server responded with HTTP ${res.status}`,
+      error: `Server responded with HTTP ${healthRes.status}`,
       urlChecked: healthUrl,
     };
+    if (!targetBaseUrl) {
+      lastHealthCheck = { result: failureResult, timestamp: Date.now() };
+    }
+    return failureResult;
   } catch (err: any) {
+    clearTimeout(timeoutId);
     const latencyMs = Math.round(performance.now() - start);
-    return {
+    const errorMsg = err.name === 'AbortError'
+      ? 'Ping timed out (> 1.6s) - Server sleeping'
+      : (err.message || 'Connecting...');
+
+    const failureResult: HealthPingResult = {
       healthy: false,
       latencyMs,
-      error: err.name === 'AbortError' ? 'Ping timed out (Render sleeping)' : err.message || 'Connecting...',
-      urlChecked: healthUrl,
+      error: errorMsg,
+      urlChecked: `${rootUrl}/ping`,
     };
+    if (!targetBaseUrl) {
+      lastHealthCheck = { result: failureResult, timestamp: Date.now() };
+    }
+    return failureResult;
   }
 }
 
@@ -111,10 +181,16 @@ export async function testBackendInteraction(targetBaseUrl?: string): Promise<{
   const start = performance.now();
   try {
     const base = targetBaseUrl ? normalizeApiUrl(targetBaseUrl) : getApiBaseUrl();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+
     const res = await fetch(`${base}/cases`, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
+
     const latencyMs = Math.round(performance.now() - start);
     if (res.ok) {
       const data = await res.json();
@@ -124,24 +200,30 @@ export async function testBackendInteraction(targetBaseUrl?: string): Promise<{
     return { success: false, caseCount: 0, latencyMs, error: `HTTP ${res.status}` };
   } catch (err: any) {
     const latencyMs = Math.round(performance.now() - start);
-    return { success: false, caseCount: 0, latencyMs, error: err.message || 'Failed to connect' };
+    return {
+      success: false,
+      caseCount: 0,
+      latencyMs,
+      error: err.name === 'AbortError' ? 'Connection timed out (> 3.5s)' : (err.message || 'Failed to connect'),
+    };
   }
 }
 
 export async function wakeUpBackend(
   onProgress?: (attempt: number, maxAttempts: number, message: string) => void,
-  maxAttempts = 25
+  maxAttempts = 20
 ): Promise<boolean> {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     if (onProgress) {
       onProgress(
         attempt,
         maxAttempts,
-        `Probe ${attempt}: Activating Render container...`
+        `Probe ${attempt}: Signaling server container...`
       );
     }
 
-    const ping = await pingBackendHealth();
+    // Force fresh fast probe with 1500ms timeout
+    const ping = await pingBackendHealth({ forceFresh: true, timeoutMs: 1500 });
     if (ping.healthy) {
       if (onProgress) {
         onProgress(attempt, maxAttempts, `Active in ${ping.latencyMs}ms! Connected and ready.`);
@@ -150,7 +232,7 @@ export async function wakeUpBackend(
     }
 
     if (attempt < maxAttempts) {
-      await new Promise((r) => setTimeout(r, 1000));
+      await new Promise((r) => setTimeout(r, 700));
     }
   }
 
@@ -165,6 +247,10 @@ export async function apiRequest<T>(
   endpoint: string,
   options: ApiRequestOptions = {}
 ): Promise<T> {
+  if (isOfflineModeEnabled()) {
+    throw new Error('Tactical Offline Mode active - utilizing local intelligence cache.');
+  }
+
   const baseUrl = getApiBaseUrl();
   const token = localStorage.getItem('caselink_token');
   const headers: Record<string, string> = {

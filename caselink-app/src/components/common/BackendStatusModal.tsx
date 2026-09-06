@@ -48,8 +48,8 @@ export const BackendStatusModal: React.FC<BackendStatusModalProps> = ({ isOpen, 
   const isHttpsDeployment = typeof window !== 'undefined' && window.location.protocol === 'https:';
   const isLocalhostOnHttps = isHttpsDeployment && currentUrl.includes('localhost');
 
-  const checkHealth = useCallback(async (targetUrl?: string) => {
-    const res = await pingBackendHealth(targetUrl);
+  const checkHealth = useCallback(async (targetUrl?: string, force = false) => {
+    const res = await pingBackendHealth({ targetBaseUrl: targetUrl, forceFresh: force, timeoutMs: 2000 });
     setPingResult(res);
     return res;
   }, []);
@@ -172,7 +172,7 @@ export const BackendStatusModal: React.FC<BackendStatusModalProps> = ({ isOpen, 
           </div>
 
           <button
-            onClick={() => checkHealth()}
+            onClick={() => checkHealth(undefined, true)}
             className="p-2 rounded-lg bg-[#152A46] hover:bg-[#1E3A5F] text-slate-300 hover:text-white border border-[#1E3A5F] transition-all"
             title="Refresh Health"
           >

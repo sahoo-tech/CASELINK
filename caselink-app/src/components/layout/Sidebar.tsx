@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -12,9 +12,11 @@ import {
   FileText,
   Shield,
   Settings,
+  LogOut,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
+import userService from '../../services/userService';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -44,6 +46,12 @@ const NAV_ITEMS: NavItem[] = [
 
 const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    userService.logout();
+    navigate('/login');
+  };
 
   return (
     <motion.aside
@@ -128,11 +136,44 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {
         })}
       </nav>
 
-      {/* Collapse Toggle */}
-      <div className="border-t border-[#1E3A5F] p-2">
+      {/* Session Controls: Logout & Collapse Toggle */}
+      <div className="border-t border-[#1E3A5F] p-2 space-y-1">
+        {/* Logout Action */}
+        <div className="relative group">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 w-full px-2 py-2 rounded-md text-sm font-medium text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors duration-150"
+            aria-label="Logout"
+          >
+            <LogOut size={18} className="shrink-0 text-slate-500 group-hover:text-red-400" />
+            <AnimatePresence>
+              {!collapsed && (
+                <motion.span
+                  key="logout-label"
+                  initial={{ opacity: 0, x: -6 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -6 }}
+                  transition={{ duration: 0.15 }}
+                  className="whitespace-nowrap overflow-hidden text-xs font-semibold"
+                >
+                  Logout Session
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </button>
+          {collapsed && (
+            <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+              <div className="bg-red-950/90 border border-red-500/40 text-red-200 text-xs font-medium px-2.5 py-1.5 rounded-md whitespace-nowrap shadow-xl">
+                Logout Session
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Collapse Toggle */}
         <button
           onClick={onToggle}
-          className="flex items-center justify-center w-full py-2 rounded-md text-slate-500 hover:text-slate-200 hover:bg-[#152A46] transition-colors duration-150"
+          className="flex items-center justify-center w-full py-1.5 rounded-md text-slate-500 hover:text-slate-200 hover:bg-[#152A46] transition-colors duration-150"
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}

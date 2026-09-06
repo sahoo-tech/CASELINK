@@ -135,12 +135,35 @@ app.include_router(reports.router,     prefix="", include_in_schema=False)
 
 
 # ─── System Endpoints ────────────────────────────────────────────────────────
+@app.get(f"{settings.API_V1_STR}/ping", tags=["System"])
+@app.get("/ping", tags=["System"])
+@app.head(f"{settings.API_V1_STR}/ping", tags=["System"])
+@app.head("/ping", tags=["System"])
+async def fast_ping():
+    """Ultra-lightweight ping endpoint for instant latency checking and keepalive (< 1ms)."""
+    return {
+        "status": "ok",
+        "pong": True,
+        "service": settings.PROJECT_NAME,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+    }
+
+
 @app.get(f"{settings.API_V1_STR}/health", tags=["System"])
 @app.get("/health", tags=["System"])
+@app.head(f"{settings.API_V1_STR}/health", tags=["System"])
+@app.head("/health", tags=["System"])
 async def health_check():
-    """System health and readiness check endpoint."""
-    from app.services.graph_builder import graph_builder_service
-    graph = graph_builder_service.graph
+    """System health and readiness check endpoint with knowledge graph status."""
+    try:
+        from app.services.graph_builder import graph_builder_service
+        graph = graph_builder_service.graph
+        nodes = graph.number_of_nodes()
+        edges = graph.number_of_edges()
+    except Exception:
+        nodes = 0
+        edges = 0
+
     return {
         "status": "healthy",
         "service": settings.PROJECT_NAME,
@@ -148,9 +171,9 @@ async def health_check():
         "environment": settings.ENVIRONMENT,
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "knowledge_graph": {
-            "nodes": graph.number_of_nodes(),
-            "edges": graph.number_of_edges(),
-            "status": "loaded" if graph.number_of_nodes() > 0 else "empty",
+            "nodes": nodes,
+            "edges": edges,
+            "status": "loaded" if nodes > 0 else "empty",
         },
     }
 

@@ -11,6 +11,7 @@ import HypothesisEnginePage from './pages/HypothesisEnginePage';
 import EvidenceTracePage from './pages/EvidenceTracePage';
 import ReportPage from './pages/ReportPage';
 import AdminPage from './pages/AdminPage';
+import SettingsPage from './pages/SettingsPage';
 
 function App() {
   return (
@@ -29,7 +30,7 @@ function App() {
           <Route path="/evidence" element={<EvidenceTracePage />} />
           <Route path="/reports" element={<ReportPage />} />
           <Route path="/admin" element={<AdminPage />} />
-          <Route path="/settings" element={<AdminPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
