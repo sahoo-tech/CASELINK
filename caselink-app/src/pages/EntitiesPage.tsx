@@ -2,28 +2,21 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Users,
   Search,
-  Filter,
   ArrowUpRight,
   Shield,
   Layers,
   MapPin,
   Car,
   Building2,
-  Calendar,
   AlertTriangle,
   Sparkles,
   CheckCircle2,
-  HelpCircle,
   FileText,
   Send,
   RefreshCw,
-  Phone,
-  DollarSign,
   User,
   Check,
-  X,
 } from 'lucide-react';
 import { MOCK_ENTITIES, type Entity, type EntityType } from '../data/mockData';
 import EntityBadge from '../components/ui/EntityBadge';
@@ -83,7 +76,7 @@ export const EntitiesPage: React.FC = () => {
       const res = await entityService.extractEntities(text, 'case-001');
       setExtractionResult(res);
 
-      // Add newly extracted entities to viewable list
+      // Add newly extracted entities to viewable list safely
       if (res.entities && res.entities.length > 0) {
         const newEntities: Entity[] = res.entities.map((e, idx) => ({
           id: `ext-${Date.now()}-${idx}`,
@@ -94,8 +87,8 @@ export const EntitiesPage: React.FC = () => {
           relatedCases: 1,
           locations: 1,
           evidenceLinks: 1,
-          details: { extraction_method: e.extraction_method },
-          roleOrDesignation: `Extracted via ${e.extraction_method}`,
+          details: { extraction_method: e.extraction_method || 'NLP' },
+          roleOrDesignation: `Extracted via ${e.extraction_method || 'NLP'}`,
         }));
 
         setEntities((prev) => {
@@ -113,9 +106,74 @@ export const EntitiesPage: React.FC = () => {
         setExtractorError('No distinct entities detected in this snippet. Try including names, vehicle numbers, or phone numbers.');
       }
     } catch (err: any) {
-      setExtractorError(`Extraction failed: ${err.message || 'Unable to parse text.'}`);
+      // Tactical fallback to client NLP engine
+      try {
+        const fallback = entityService.extractEntitiesLocally(text, 'case-001');
+        setExtractionResult(fallback);
+        if (fallback.entities && fallback.entities.length > 0) {
+          const newEntities: Entity[] = fallback.entities.map((e, idx) => ({
+            id: `ext-${Date.now()}-${idx}`,
+            name: e.name,
+            type: (e.type as EntityType) || 'Person',
+            confidence: Math.round((e.confidence || 0.85) * 100),
+            aliases: [],
+            relatedCases: 1,
+            locations: 1,
+            evidenceLinks: 1,
+            details: { extraction_method: e.extraction_method },
+            roleOrDesignation: `Extracted via ${e.extraction_method}`,
+          }));
+
+          setEntities((prev) => {
+            const names = new Set(prev.map((p) => p.name.toLowerCase()));
+            const uniqueNew = newEntities.filter((ne) => !names.has(ne.name.toLowerCase()));
+            return [...uniqueNew, ...prev];
+          });
+
+          setExtractorFeedback(`Extracted ${fallback.entities.length} entities via Tactical Client NLP Engine.`);
+        }
+      } catch {
+        setExtractorError(`Extraction failed: ${err.message || 'Unable to parse text.'}`);
+      }
     } finally {
       setIsExtracting(false);
+    }
+  };
+
+  // Toggle resolver with immediate evaluation if empty
+  const handleToggleResolver = () => {
+    const next = !showResolver;
+    setShowResolver(next);
+    if (next && resolutionResults.length === 0) {
+      const candidates = resolveCandidates.split(',').map((c) => c.trim()).filter(Boolean);
+      const instant = entityService.resolveCandidatesLocally(resolveQuery.trim(), candidates);
+      setResolutionResults(instant);
+      if (instant.length > 0) {
+        const top = instant.reduce((p, c) => (c.confidence > p.confidence ? c : p), instant[0]);
+        setResolverFeedback(
+          `Evaluated ${instant.length} candidate identities. Top candidate: "${top.matched_entity}" (${Math.round(
+            top.confidence * 100
+          )}% confidence - ${top.status}).`
+        );
+      }
+    }
+  };
+
+  // Apply a Resolver Preset with immediate instant calculation
+  const handleApplyResolverPreset = (query: string, candidatesStr: string) => {
+    setResolveQuery(query);
+    setResolveCandidates(candidatesStr);
+    setResolverError('');
+    const candidates = candidatesStr.split(',').map((c) => c.trim()).filter(Boolean);
+    const instant = entityService.resolveCandidatesLocally(query, candidates);
+    setResolutionResults(instant);
+    if (instant.length > 0) {
+      const top = instant.reduce((p, c) => (c.confidence > p.confidence ? c : p), instant[0]);
+      setResolverFeedback(
+        `Evaluated ${instant.length} candidate identities. Top candidate: "${top.matched_entity}" (${Math.round(
+          top.confidence * 100
+        )}% confidence - ${top.status}).`
+      );
     }
   };
 
@@ -124,7 +182,8 @@ export const EntitiesPage: React.FC = () => {
     setResolverError('');
     setResolverFeedback('');
 
-    if (!resolveQuery.trim()) {
+    const query = resolveQuery.trim();
+    if (!query) {
       setResolverError('Please enter an alias query name (e.g. "R. Kumar") to evaluate.');
       return;
     }
@@ -141,7 +200,7 @@ export const EntitiesPage: React.FC = () => {
 
     setIsResolving(true);
     try {
-      const res = await entityService.resolveEntities(resolveQuery.trim(), candidates);
+      const res = await entityService.resolveEntities(query, candidates);
       setResolutionResults(res || []);
 
       if (res && res.length > 0) {
@@ -154,8 +213,11 @@ export const EntitiesPage: React.FC = () => {
       } else {
         setResolverError('No candidates could be evaluated. Please verify the candidate names.');
       }
-    } catch (err: any) {
-      setResolverError(`Resolution failed: ${err.message || 'Unable to evaluate candidates.'}`);
+    } catch {
+      // Instant tactical fallback
+      const fallback = entityService.resolveCandidatesLocally(query, candidates);
+      setResolutionResults(fallback);
+      setResolverFeedback(`Evaluated ${fallback.length} candidate identities via Tactical ACH Engine.`);
     } finally {
       setIsResolving(false);
     }
@@ -218,7 +280,7 @@ export const EntitiesPage: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setShowResolver(!showResolver)}
+            onClick={handleToggleResolver}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all ${
               showResolver
                 ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30'
@@ -487,24 +549,24 @@ export const EntitiesPage: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] text-slate-500 hidden md:inline">Presets:</span>
                   <button
-                    onClick={() => {
-                      setResolveQuery('R. Kumar');
-                      setResolveCandidates('Raj Kumar, Rajesh Kumar, Arjun Mehta, Sanjay Das');
-                      setResolverError('');
-                      setResolverFeedback('');
-                    }}
-                    className="px-2.5 py-1 rounded bg-[#152A46] text-slate-300 hover:text-white text-[11px] border border-[#1E3A5F] transition-colors"
+                    onClick={() =>
+                      handleApplyResolverPreset(
+                        'R. Kumar',
+                        'Raj Kumar, Rajesh Kumar, Arjun Mehta, Sanjay Das'
+                      )
+                    }
+                    className="px-2.5 py-1 rounded bg-[#152A46] text-slate-300 hover:text-white text-[11px] border border-[#1E3A5F] hover:border-amber-500/50 transition-colors"
                   >
                     R. Kumar Case
                   </button>
                   <button
-                    onClick={() => {
-                      setResolveQuery('Vikram S.');
-                      setResolveCandidates('ACP Vikram Sharma, Vikramaditya Rao, Priya Menon, Rajesh Nair');
-                      setResolverError('');
-                      setResolverFeedback('');
-                    }}
-                    className="px-2.5 py-1 rounded bg-[#152A46] text-slate-300 hover:text-white text-[11px] border border-[#1E3A5F] transition-colors"
+                    onClick={() =>
+                      handleApplyResolverPreset(
+                        'Vikram S.',
+                        'ACP Vikram Sharma, Vikramaditya Rao, Priya Menon, Rajesh Nair'
+                      )
+                    }
+                    className="px-2.5 py-1 rounded bg-[#152A46] text-slate-300 hover:text-white text-[11px] border border-[#1E3A5F] hover:border-amber-500/50 transition-colors"
                   >
                     Officer Alias Check
                   </button>
@@ -702,7 +764,7 @@ export const EntitiesPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
-          {['ALL', 'PERSON', 'VEHICLE', 'LOCATION', 'ORGANIZATION', 'EVENT'].map((t) => (
+          {['ALL', 'PERSON', 'VEHICLE', 'LOCATION', 'ORGANIZATION', 'EVENT', 'DOCUMENT'].map((t) => (
             <button
               key={t}
               onClick={() => setTypeFilter(t)}
@@ -801,4 +863,54 @@ export const EntitiesPage: React.FC = () => {
   );
 };
 
-export default EntitiesPage;
+class EntitiesErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: string }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: '' };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error: error?.message || 'Unexpected rendering error' };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error('EntitiesPage Error Boundary caught:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 max-w-xl mx-auto my-12 bg-[#0B1F3A] border border-red-500/40 rounded-2xl shadow-2xl text-center space-y-4">
+          <div className="w-12 h-12 mx-auto rounded-full bg-red-500/20 text-red-400 flex items-center justify-center border border-red-500/30">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-bold text-white">Entity View Recovered</h2>
+          <p className="text-xs text-slate-300">
+            An unexpected error occurred: <code className="font-mono text-red-300">{this.state.error}</code>
+          </p>
+          <button
+            onClick={() => {
+              this.setState({ hasError: false, error: '' });
+              window.location.reload();
+            }}
+            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold"
+          >
+            Reload Entity Explorer
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const EntitiesPageWithErrorBoundary: React.FC = () => (
+  <EntitiesErrorBoundary>
+    <EntitiesPage />
+  </EntitiesErrorBoundary>
+);
+
+export default EntitiesPageWithErrorBoundary;

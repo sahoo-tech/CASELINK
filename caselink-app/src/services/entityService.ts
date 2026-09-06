@@ -337,10 +337,10 @@ export const entityService = {
     }
 
     try {
-      // Call backend with a responsive 2200ms timeout
+      // Call backend with a responsive 1500ms timeout
       const res = await apiRequest<any>('/entities/extract', {
         method: 'POST',
-        timeoutMs: 2200,
+        timeoutMs: 1500,
         body: JSON.stringify({
           case_id: caseId,
           text,
@@ -373,8 +373,7 @@ export const entityService = {
       }
 
       // If backend returns empty or non-standard format, supplement with client engine
-      const localFallback = extractEntitiesLocally(text, caseId);
-      return localFallback;
+      return extractEntitiesLocally(text, caseId);
     } catch (err) {
       console.info('Backend /entities/extract unavailable or timed out. Utilizing tactical client NLP engine...');
       return extractEntitiesLocally(text, caseId);
@@ -390,10 +389,10 @@ export const entityService = {
     }
 
     try {
-      // Attempt backend resolution
+      // Attempt backend resolution with snappy 1500ms timeout
       const res = await apiRequest<any[]>('/entities/resolve', {
         method: 'POST',
-        timeoutMs: 2200,
+        timeoutMs: 1500,
         body: JSON.stringify({
           query_name: queryName.trim(),
           candidates,
@@ -423,6 +422,16 @@ export const entityService = {
       return resolveCandidatesLocally(queryName, candidates);
     }
   },
+
+  /**
+   * Direct instant synchronous client-side ACH evaluation (zero network latency)
+   */
+  resolveCandidatesLocally,
+
+  /**
+   * Direct instant synchronous client-side NLP extraction
+   */
+  extractEntitiesLocally,
 };
 
 export default entityService;

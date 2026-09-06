@@ -34,7 +34,7 @@ export interface Case {
   entityCount: number;
 }
 
-export type EntityType = 'Person' | 'Vehicle' | 'Location' | 'Organization' | 'Event' | 'Case';
+export type EntityType = 'Person' | 'Vehicle' | 'Location' | 'Organization' | 'Event' | 'Case' | 'Document';
 
 export interface Entity {
   id: string;
